@@ -299,51 +299,24 @@ class RedBlackTree extends BinarySearchTree {
         gp._color = COLOR.RED;
         return gp;
     }
-    _isBlack(p) {
-        return this.isExternal(p) || p._color == COLOR.BLACK;
-    }
-    _isRed(p) {
-        return this.isInternal(p) && p._color == COLOR.RED;
-    }
     _isDoubleRed(p) {
         if (this.isRoot(p)) {
             p._color = COLOR.BLACK;
             return false;
         } else {
-            return this._isRed(p._parent); // bug 4: p._parent, not p
+            return this.isRed(p._parent); // bug 4: p._parent, not p
         }
-    }
-    insertItem(k, e) {
-        let q = super.insertItem(k, e);
-        if (q != null) { // the item was inserted
-            q._color = COLOR.RED;  // add the _color attribute to q
-            let z = q;
-            while (this._isDoubleRed(z)) {
-                let p = z._parent;
-                let w = this.sibling(p); // uncle
-                if (this._isBlack(w)) { // case 1: uncle is black
-                    let gp = p._parent;
-                    this._restructure(gp, p, z);
-                    gp._color = COLOR.RED;
-                    gp._parent._color = COLOR.BLACK; // new parent of gp
-                    return q;
-                } else { // case 2: uncle is red
-                    z = this._splitRecolor(p, z);
-                }
-            }
-        }
-        return q;
     }
     _redChildOf(p) {
         let left = p._left;
         let right = p._right;
         let redChild = null;
-        if (this._isRed(left)) {
+        if (this.isRed(left)) {
             redChild = left;
-            if (this._isLeftChild(p) && this._isRed(right)) {
+            if (this._isLeftChild(p) && this.isRed(right)) {
                 redChild = right;
             }
-        } else if (this._isRed(right)) { // bug 5 right instead of left
+        } else if (this.isRed(right)) { // bug 5 right instead of left
             redChild = right;
         }
         return redChild;
@@ -366,7 +339,7 @@ class RedBlackTree extends BinarySearchTree {
     }
     _fusionRecolor(y, p, r) {
         y._color = COLOR.RED;
-        if (this._isRed(p)) {
+        if (this.isRed(p)) {
             p._color = COLOR.BLACK;
         } else {
             p._color = COLOR.DBLACK;
@@ -381,12 +354,12 @@ class RedBlackTree extends BinarySearchTree {
     }
     _removeDoubleBlack(y, r) {
         if (this.isExternal(r) || this._isDoubleBlack(r)) {
-            if (this._isRed(y)) {  // case 3
+            if (this.isRed(y)) {  // case 3
                 y = this._adjustment(y);
             }
             let py = y._parent;
             let z = this._redChildOf(y);
-            if (this._isBlack(z)) { // case1: sibling has no red children
+            if (this.isBlack(z)) { // case1: sibling has no red children
                 r = this._fusionRecolor(y, py, r);
                 if (this.isRoot(r)) {
                     r._color = COLOR.BLACK;
@@ -405,6 +378,36 @@ class RedBlackTree extends BinarySearchTree {
             }
         }
     }
+    isBlack(p) {
+        return this.isExternal(p) || p._color == COLOR.BLACK;
+    }
+    isRed(p) {
+        return this.isInternal(p) && p._color == COLOR.RED;
+    }
+    iterator() {
+        return new RB_Iterator(this);
+    }
+    insertItem(k, e) {
+        let q = super.insertItem(k, e);
+        if (q != null) { // the item was inserted
+            q._color = COLOR.RED;  // add the _color attribute to q
+            let z = q;
+            while (this._isDoubleRed(z)) {
+                let p = z._parent;
+                let w = this.sibling(p); // uncle
+                if (this.isBlack(w)) { // case 1: uncle is black
+                    let gp = p._parent;
+                    this._restructure(gp, p, z);
+                    gp._color = COLOR.RED;
+                    gp._parent._color = COLOR.BLACK; // new parent of gp
+                    return q;
+                } else { // case 2: uncle is red
+                    z = this._splitRecolor(p, z);
+                }
+            }
+        }
+        return q;
+    }
     removeElement(k) {
         let r = this._findPos2Remove(k);
         if (r == null) { // key k is not in the BST
@@ -414,7 +417,7 @@ class RedBlackTree extends BinarySearchTree {
         let y = this.sibling(r);
         // console.log("Removing " + r.element().key());
         let child = this.remove(r);
-        if (this._isBlack(r)) { // bug 6: do nothing if r is red
+        if (this.isBlack(r)) { // bug 6: do nothing if r is red
             if (this.isInternal(child)) { // child is red
                 child._color = COLOR.BLACK; // done if has red child
             } else {
@@ -443,6 +446,51 @@ class EulerTour {
         return result[1];
     }
 }
+class RB_Iterator extends EulerTour {
+    constructor(T) {
+        super();
+        this._nodes = [];
+        this._index = 0;
+        this._getNodes(T);
+        this.reset();
+    }
+    visitInOrder(T, v, result) {
+        this._nodes[this._index] = v.element(); //bug missing '= v' :-)
+        this._index++;
+    }
+    _getNodes(T) {
+        this.eulerTour(T, T.root());
+    }
+    hasNext() {
+        return this._index < this._nodes.length;
+    }
+    nextObject() {
+        let next = this._nodes[this._index];
+        this._index++;
+        return next;
+    }
+    reset() {
+        this._index = 0;
+    }
+}
+class PrintInOrder {
+    constructor(T) {
+        this._iter = T.iterator();
+    }
+    print() {
+        this._iter.reset();
+        let res = "[";
+        while (this._iter.hasNext()) {
+            let next = this._iter.nextObject();
+            if (this._iter.hasNext()) {
+                res = res + next.key() + " ";
+            } else {
+                res = res + next.key();
+            }
+        }
+        console.log(res + "]");
+    }
+}
 class Print extends EulerTour {
     visitExternal(T, v, result) {
         result[1] = "";
@@ -462,29 +510,27 @@ class Print extends EulerTour {
     }
 }
 class Height extends EulerTour {
-    visitExternal(T, v, result) {
+    visitExternal(T,v,result){
         result[1] = 0;
     }
-    visitPostOrder(T, v, result) {
+    visitPostOrder(T,v,result) {
         result[1] = 1+Math.max(result[0],result[2]);
     }
     height(T) {
-        let res = this.eulerTour(T, T.root());
-        console.log("[" + res + "]\n");
+        let res = this.eulerTour(T,T.root());
         return res;
     }
 }
 
 class BlackHeight extends EulerTour {
-    visitExternal(T, v, result) {
+    visitExternal(T,v,result){
         result[1] = 0;
     }
-    visitPostOrder(T, v, result) {
+    visitPostOrder(T,v,result) {
         result[1] = 1+Math.max(result[0],result[2]);
     }
     height(T) {
-        let res = this.eulerTour(T, T.root());
-        console.log("[" + res + "]\n");
+        let res = this.eulerTour(T,T.root());
         return res;
     }
 }
@@ -523,6 +569,9 @@ t0.insertItem(500, 100);
 printer.print(t0);
 console.log("height="+ h.height(t0)+"\n");
 console.log("black-height="+ bh.height(t0)+"\n");
+let inOrderPrinter = new PrintInOrder(t0);
+inOrderPrinter.print();
+
 t0.removeElement(50);
 printer.print(t0);
 console.log("height="+ h.height(t0)+"\n");
